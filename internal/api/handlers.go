@@ -35,8 +35,8 @@ func validateTask(t *models.Task) error {
 
 func (ar *APIRouter) GetTasks(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	// TODO: Get user_id from authentication context instead of hardcoding
-	tasks, err := ar.db.GetTasks(ctx, "1")
+	userID := userIDFromRequest(r)
+	tasks, err := ar.db.GetTasks(ctx, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -60,6 +60,11 @@ func (ar *APIRouter) getTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if userID, ok := userIDFromHeader(r); ok && task.UserID != userID {
+		http.Error(w, "task not found", http.StatusNotFound)
+		return
+	}
+
 	WriteJsonResponse(w, http.StatusOK, task)
 }
 
@@ -70,6 +75,10 @@ func (ar *APIRouter) createTask(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
+	}
+
+	if userID, ok := userIDFromHeader(r); ok {
+		t.UserID = userID
 	}
 
 	// Validate task
@@ -111,6 +120,23 @@ func (ar *APIRouter) updateTask(w http.ResponseWriter, r *http.Request) {
 	// Set ID from URL parameter
 	t.ID = id
 
+	if userID, ok := userIDFromHeader(r); ok {
+		existing, err := ar.db.GetTask(ctx, id)
+		if err != nil {
+			if errors.Is(err, database.ErrNotFound) {
+				http.Error(w, "task not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if existing.UserID != userID {
+			http.Error(w, "task not found", http.StatusNotFound)
+			return
+		}
+		t.UserID = userID
+	}
+
 	// Validate task
 	if err := validateTask(&t); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -136,6 +162,22 @@ func (ar *APIRouter) deleteTask(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
 
+	if userID, ok := userIDFromHeader(r); ok {
+		task, err := ar.db.GetTask(ctx, id)
+		if err != nil {
+			if errors.Is(err, database.ErrNotFound) {
+				http.Error(w, "task not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if task.UserID != userID {
+			http.Error(w, "task not found", http.StatusNotFound)
+			return
+		}
+	}
+
 	if err := ar.db.DeleteTask(ctx, id); err != nil {
 		if errors.Is(err, database.ErrNotFound) {
 			http.Error(w, "task not found", http.StatusNotFound)
@@ -146,4 +188,16 @@ func (ar *APIRouter) deleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func userIDFromRequest(r *http.Request) string {
+	if userID, ok := userIDFromHeader(r); ok {
+		return userID
+	}
+	return "1"
+}
+
+func userIDFromHeader(r *http.Request) (string, bool) {
+	userID := r.Header.Get("X-User-ID")
+	return userID, userID != ""
 }

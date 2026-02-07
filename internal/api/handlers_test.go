@@ -46,8 +46,13 @@ func setupTestDB(t *testing.T) *database.Queries {
 		t.Fatalf("Failed to create tables: %v", err)
 	}
 
-	// Insert test user
-	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO users (id, username) VALUES ('1', 'testuser')")
+	// Insert test users
+	_, err = db.ExecContext(context.Background(), `
+		INSERT OR IGNORE INTO users (id, username) VALUES
+			('1', 'testuser'),
+			('test-user', 'apitester'),
+			('other-user', 'other')
+	`)
 	if err != nil {
 		t.Fatalf("Failed to insert test user: %v", err)
 	}
@@ -385,6 +390,82 @@ func TestDeleteTask(t *testing.T) {
 	}
 }
 
+func TestGetTaskRespectsUserHeader(t *testing.T) {
+	queries := setupTestDB(t)
+	router := NewAPIRouter(queries)
+
+	task := models.Task{
+		ID:     "test-get-user-001",
+		Title:  "User Task",
+		Start:  time.Now().Add(1 * time.Hour),
+		End:    time.Now().Add(2 * time.Hour),
+		UserID: "test-user",
+		Status: models.StatusScheduled,
+	}
+
+	body, _ := json.Marshal(task)
+	createReq := httptest.NewRequest(http.MethodPost, "/api/tasks/", bytes.NewReader(body))
+	createReq.Header.Set("Content-Type", "application/json")
+	createW := httptest.NewRecorder()
+	router.ServeHTTP(createW, createReq)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks/test-get-user-001", nil)
+	req.Header.Set("X-User-ID", "other-user")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404 for mismatched user, got %d", w.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/tasks/test-get-user-001", nil)
+	req.Header.Set("X-User-ID", "test-user")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for matching user, got %d", w.Code)
+	}
+}
+
+func TestDeleteTaskRespectsUserHeader(t *testing.T) {
+	queries := setupTestDB(t)
+	router := NewAPIRouter(queries)
+
+	task := models.Task{
+		ID:     "test-delete-user-001",
+		Title:  "User Task",
+		Start:  time.Now().Add(1 * time.Hour),
+		End:    time.Now().Add(2 * time.Hour),
+		UserID: "test-user",
+		Status: models.StatusScheduled,
+	}
+
+	body, _ := json.Marshal(task)
+	createReq := httptest.NewRequest(http.MethodPost, "/api/tasks/", bytes.NewReader(body))
+	createReq.Header.Set("Content-Type", "application/json")
+	createW := httptest.NewRecorder()
+	router.ServeHTTP(createW, createReq)
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/tasks/test-delete-user-001", nil)
+	deleteReq.Header.Set("X-User-ID", "other-user")
+	deleteW := httptest.NewRecorder()
+	router.ServeHTTP(deleteW, deleteReq)
+
+	if deleteW.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404 for mismatched user delete, got %d", deleteW.Code)
+	}
+
+	deleteReq = httptest.NewRequest(http.MethodDelete, "/api/tasks/test-delete-user-001", nil)
+	deleteReq.Header.Set("X-User-ID", "test-user")
+	deleteW = httptest.NewRecorder()
+	router.ServeHTTP(deleteW, deleteReq)
+
+	if deleteW.Code != http.StatusNoContent {
+		t.Errorf("Expected status 204 for matching user delete, got %d", deleteW.Code)
+	}
+}
+
 func TestTaskOverlapDetection(t *testing.T) {
 	queries := setupTestDB(t)
 	router := NewAPIRouter(queries)
@@ -423,5 +504,95 @@ func TestTaskOverlapDetection(t *testing.T) {
 
 	if createW2.Code != http.StatusConflict {
 		t.Errorf("Expected status 409 for overlapping task, got %d", createW2.Code)
+	}
+}
+
+func TestTaskOverlapIgnoresInactiveStatuses(t *testing.T) {
+	queries := setupTestDB(t)
+	router := NewAPIRouter(queries)
+
+	// Create deleted task
+	task1 := models.Task{
+		ID:     "test-inactive-001",
+		Title:  "Deleted Task",
+		Start:  time.Date(2026, 2, 8, 9, 0, 0, 0, time.UTC),
+		End:    time.Date(2026, 2, 8, 10, 0, 0, 0, time.UTC),
+		UserID: "test-user",
+		Status: models.StatusDeleted,
+	}
+
+	body1, _ := json.Marshal(task1)
+	createReq1 := httptest.NewRequest(http.MethodPost, "/api/tasks/", bytes.NewReader(body1))
+	createReq1.Header.Set("Content-Type", "application/json")
+	createW1 := httptest.NewRecorder()
+	router.ServeHTTP(createW1, createReq1)
+
+	if createW1.Code != http.StatusCreated {
+		t.Fatalf("Expected status 201 for deleted task, got %d", createW1.Code)
+	}
+
+	// Create overlapping scheduled task (should be allowed)
+	task2 := models.Task{
+		ID:     "test-inactive-002",
+		Title:  "Scheduled Task",
+		Start:  time.Date(2026, 2, 8, 9, 30, 0, 0, time.UTC),
+		End:    time.Date(2026, 2, 8, 10, 30, 0, 0, time.UTC),
+		UserID: "test-user",
+		Status: models.StatusScheduled,
+	}
+
+	body2, _ := json.Marshal(task2)
+	createReq2 := httptest.NewRequest(http.MethodPost, "/api/tasks/", bytes.NewReader(body2))
+	createReq2.Header.Set("Content-Type", "application/json")
+	createW2 := httptest.NewRecorder()
+	router.ServeHTTP(createW2, createReq2)
+
+	if createW2.Code != http.StatusCreated {
+		t.Errorf("Expected status 201 for overlapping scheduled task, got %d", createW2.Code)
+	}
+}
+
+func TestTaskOverlapIsScopedToUser(t *testing.T) {
+	queries := setupTestDB(t)
+	router := NewAPIRouter(queries)
+
+	// Create task for user A
+	task1 := models.Task{
+		ID:     "test-user-scope-001",
+		Title:  "User A Task",
+		Start:  time.Date(2026, 2, 8, 9, 0, 0, 0, time.UTC),
+		End:    time.Date(2026, 2, 8, 10, 0, 0, 0, time.UTC),
+		UserID: "test-user",
+		Status: models.StatusScheduled,
+	}
+
+	body1, _ := json.Marshal(task1)
+	createReq1 := httptest.NewRequest(http.MethodPost, "/api/tasks/", bytes.NewReader(body1))
+	createReq1.Header.Set("Content-Type", "application/json")
+	createW1 := httptest.NewRecorder()
+	router.ServeHTTP(createW1, createReq1)
+
+	if createW1.Code != http.StatusCreated {
+		t.Fatalf("Expected status 201 for first task, got %d", createW1.Code)
+	}
+
+	// Create overlapping task for user B (should be allowed)
+	task2 := models.Task{
+		ID:     "test-user-scope-002",
+		Title:  "User B Task",
+		Start:  time.Date(2026, 2, 8, 9, 30, 0, 0, time.UTC),
+		End:    time.Date(2026, 2, 8, 10, 30, 0, 0, time.UTC),
+		UserID: "other-user",
+		Status: models.StatusScheduled,
+	}
+
+	body2, _ := json.Marshal(task2)
+	createReq2 := httptest.NewRequest(http.MethodPost, "/api/tasks/", bytes.NewReader(body2))
+	createReq2.Header.Set("Content-Type", "application/json")
+	createW2 := httptest.NewRecorder()
+	router.ServeHTTP(createW2, createReq2)
+
+	if createW2.Code != http.StatusCreated {
+		t.Errorf("Expected status 201 for overlapping task with different user, got %d", createW2.Code)
 	}
 }

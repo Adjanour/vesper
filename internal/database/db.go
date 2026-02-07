@@ -78,38 +78,57 @@ const (
 	deleteTaskSQL              = `DELETE FROM tasks WHERE id = ?`
 	getTaskSQL                 = `SELECT id, title, start, end, status, user_id FROM tasks WHERE id = ?`
 	getTasksSQL                = `SELECT id, title, start, end, status, user_id FROM tasks WHERE user_id = ?`
-	checkTaskOverlapSQL        = `SELECT 1 FROM tasks WHERE (? < end) AND (? > start)`
-	checkTaskOverlapExcludeSQL = `SELECT 1 FROM tasks WHERE (? < end) AND (? > start) AND id != ?`
+	checkTaskOverlapSQL = `
+	SELECT 1
+	FROM tasks
+	WHERE user_id = ?
+	  AND status = ?
+	  AND (? < end)
+	  AND (? > start)
+	`
+	checkTaskOverlapExcludeSQL = `
+	SELECT 1
+	FROM tasks
+	WHERE user_id = ?
+	  AND status = ?
+	  AND (? < end)
+	  AND (? > start)
+	  AND id != ?
+	`
 )
 
 // CreateTask inserts a new task into DB
 func (q *Queries) CreateTask(ctx context.Context, t models.Task) error {
-	// check if no task overlaps
-	result, err := q.db.QueryContext(ctx, checkTaskOverlapSQL, t.Start, t.End)
-	if err != nil {
-		return err
-	}
-	defer result.Close()
+	if t.Status == models.StatusScheduled {
+		// check if no task overlaps
+		result, err := q.db.QueryContext(ctx, checkTaskOverlapSQL, t.UserID, models.StatusScheduled, t.Start, t.End)
+		if err != nil {
+			return err
+		}
+		defer result.Close()
 
-	if result.Next() {
-		return ErrTaskOverlap
+		if result.Next() {
+			return ErrTaskOverlap
+		}
 	}
 
-	_, err = q.db.ExecContext(ctx, createTaskSQL, t.ID, t.Title, t.Start, t.End, t.Status, t.UserID)
+	_, err := q.db.ExecContext(ctx, createTaskSQL, t.ID, t.Title, t.Start, t.End, t.Status, t.UserID)
 	return err
 }
 
 // UpdateTask updates an existing task
 func (q *Queries) UpdateTask(ctx context.Context, t models.Task) error {
-	// Check for overlap with other tasks (excluding this task)
-	result, err := q.db.QueryContext(ctx, checkTaskOverlapExcludeSQL, t.Start, t.End, t.ID)
-	if err != nil {
-		return err
-	}
-	defer result.Close()
+	if t.Status == models.StatusScheduled {
+		// Check for overlap with other tasks (excluding this task)
+		result, err := q.db.QueryContext(ctx, checkTaskOverlapExcludeSQL, t.UserID, models.StatusScheduled, t.Start, t.End, t.ID)
+		if err != nil {
+			return err
+		}
+		defer result.Close()
 
-	if result.Next() {
-		return ErrTaskOverlap
+		if result.Next() {
+			return ErrTaskOverlap
+		}
 	}
 
 	// Update the task
@@ -159,9 +178,9 @@ func (q *Queries) GetTask(ctx context.Context, id string) (*models.Task, error) 
 	return &t, nil
 }
 
-// CheckTaskOverlap checks if a task overlaps with any existing tasks
-func (q *Queries) CheckTaskOverlap(ctx context.Context, start, end time.Time) error {
-	result, err := q.db.QueryContext(ctx, checkTaskOverlapSQL, start, end)
+// CheckTaskOverlap checks if a task overlaps with any existing scheduled tasks for a user
+func (q *Queries) CheckTaskOverlap(ctx context.Context, userID string, start, end time.Time) error {
+	result, err := q.db.QueryContext(ctx, checkTaskOverlapSQL, userID, models.StatusScheduled, start, end)
 	if err != nil {
 		return err
 	}

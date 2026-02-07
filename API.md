@@ -52,14 +52,29 @@ curl http://localhost:8080/api/health
 
 ## Tasks
 
+### User Scoping
+
+Tasks can be scoped per user by supplying the `X-User-ID` request header. When the header is present, the API will:
+- list tasks only for that user
+- allow access to a task only if it belongs to that user
+- set `user_id` to the header value on create/update
+
+If the header is not provided, the API defaults to the legacy user id of `"1"`.
+
 ### List All Tasks
 
-Retrieve all tasks for the current user (currently hardcoded to user_id = "1").
+Retrieve all tasks for the current user.
 
 #### Endpoint
 
 ```
 GET /api/tasks/
+```
+
+#### Request Headers (optional)
+
+```
+X-User-ID: user-123
 ```
 
 #### Response
@@ -93,6 +108,9 @@ GET /api/tasks/
 
 ```bash
 curl http://localhost:8080/api/tasks/
+
+# With user scoping
+curl -H "X-User-ID: user-123" http://localhost:8080/api/tasks/
 ```
 
 ---
@@ -111,6 +129,7 @@ POST /api/tasks/
 
 ```
 Content-Type: application/json
+X-User-ID: user-123
 ```
 
 #### Request Body
@@ -146,12 +165,13 @@ Content-Type: application/json
 ```bash
 curl -X POST http://localhost:8080/api/tasks/ \
   -H "Content-Type: application/json" \
+  -H "X-User-ID: user-123" \
   -d '{
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "title": "Morning Review",
     "start": "2026-02-08T09:00:00Z",
     "end": "2026-02-08T10:00:00Z",
-    "user_id": "1",
+    "user_id": "user-123",
     "status": "scheduled"
   }'
 ```
@@ -198,6 +218,9 @@ GET /api/tasks/{id}
 
 ```bash
 curl http://localhost:8080/api/tasks/550e8400-e29b-41d4-a716-446655440000
+
+# With user scoping
+curl -H "X-User-ID: user-123" http://localhost:8080/api/tasks/550e8400-e29b-41d4-a716-446655440000
 ```
 
 #### Error Responses
@@ -226,6 +249,7 @@ PUT /api/tasks/{id}
 
 ```
 Content-Type: application/json
+X-User-ID: user-123
 ```
 
 #### Request Body
@@ -262,11 +286,12 @@ Content-Type: application/json
 ```bash
 curl -X PUT http://localhost:8080/api/tasks/550e8400-e29b-41d4-a716-446655440000 \
   -H "Content-Type: application/json" \
+  -H "X-User-ID: user-123" \
   -d '{
     "title": "Morning Review (Extended)",
     "start": "2026-02-08T09:00:00Z",
     "end": "2026-02-08T10:30:00Z",
-    "user_id": "1",
+    "user_id": "user-123",
     "status": "scheduled"
   }'
 ```
@@ -305,6 +330,9 @@ No response body.
 
 ```bash
 curl -X DELETE http://localhost:8080/api/tasks/550e8400-e29b-41d4-a716-446655440000
+
+# With user scoping
+curl -H "X-User-ID: user-123" -X DELETE http://localhost:8080/api/tasks/550e8400-e29b-41d4-a716-446655440000
 ```
 
 #### Error Responses
