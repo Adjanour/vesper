@@ -1,13 +1,23 @@
 # Vesper (Time Block Planner)
 
+[![Go Version](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go)](https://golang.org/dl/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 Vesper is a lightweight backend service for a **time-block planning workflow**.
 Each night, the system (planned) will send you a link to a calendar UI where you can create time blocks.
 Those blocks are then synced to your calendar (**Google Calendar integration planned**).
 
 This repository contains the Go backend that stores and manages time blocks (tasks) and exposes a simple HTTP API.
 
+---
 
-**Status:** Early stage 🚧
+## 📚 Documentation
+
+- **[Installation Guide](INSTALL.md)** - Detailed setup instructions
+- **[API Documentation](API.md)** - Complete API reference with examples
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
+- **[Changelog](CHANGELOG.md)** - Version history and changes
 
 ---
 
@@ -15,14 +25,11 @@ This repository contains the Go backend that stores and manages time blocks (tas
 
 * [Project Overview](#project-overview)
 * [What Is Implemented Today](#what-is-implemented-today)
-* [Quick Start (Build & Run)](#quick-start--build--run)
-* [HTTP API (Endpoints + Examples)](#http-api)
-* [Data Model & Database](#data-model--database)
-* [Docker (Suggested Dockerfile)](#docker-suggested-dockerfile)
+* [Quick Start](#quick-start)
+* [Development](#development)
+* [Docker](#docker)
 * [Roadmap / Next Steps](#roadmap--next-steps)
 * [Contributing](#contributing)
-* [Notes and Implementation Details](#notes-and-implementation-details)
-* [Contacts / Author](#contacts--author)
 * [License](#license)
 
 ---
@@ -41,89 +48,140 @@ It is intentionally small and opinionated so the frontend and integrations can e
 
 ## What Is Implemented Today
 
-✅ Features implemented:
+✅ **Features implemented:**
 
-* HTTP server that listens on `:8080` and exposes a small JSON API.
-* SQLite-based persistence stored at `./data/tasks.db`.
-* Core task operations:
+* HTTP server that listens on `:8080` and exposes a JSON API
+* SQLite-based persistence stored at `./data/tasks.db`
+* Complete CRUD task operations:
+  * **List** all tasks for a user
+  * **Create** a task (with validation and overlap check)
+  * **Get** a single task by ID
+  * **Update** a task (with validation and overlap check)
+  * **Delete** a task
+* Input validation for all task operations
+* Database migrations with automated migration runner
+* **Web UI** - Beautiful browser-based interface for managing time blocks
+* Simple CORS setup for browser-based UIs
+* Docker support with multi-stage builds
+* Comprehensive test suite (18 tests)
+* Comprehensive documentation and setup guides
 
-  * Create a task (with overlap check)
-  * Get a single task
-  * Delete a task
-* Database migration files under `internal/database/migrations`.
-* Simple CORS setup for browser-based UIs.
-
-🚧 Not yet implemented:
+🚧 **Not yet implemented:**
 
 * Google Calendar OAuth + sync
 * Nightly email with planning link
-* Frontend planning UI
 * Authentication & multi-user support (basic `user_id` exists but no auth)
 * Background worker / nightly scheduler
 
+---
 
-## Quick Start — Build & Run
+## Quick Start
 
 ### Prerequisites
 
-* Go **1.24+**
-* SQLite (handled via embedded Go driver `modernc.org/sqlite` — no external DB required)
+- Go 1.24 or higher
+- SQLite (embedded via Go driver - no separate installation needed)
 
-### Build Locally
-
-```bash
-go build -o vesper ./cmd/server
-```
-
-### Run
+### Installation
 
 ```bash
-# Run directly
-./vesper
+# Clone the repository
+git clone https://github.com/Adjanour/vesper.git
+cd vesper
 
-# Or with go run
-go run ./cmd/server
+# Option 1: Use the setup script (recommended for first-time setup)
+./setup.sh
+
+# Option 2: Use Make commands
+make setup
+
+# Run the server
+make run
 ```
 
-The server starts on **port 8080**:
+The server starts on **port 8080**. Test it:
 
-* Health check → [http://localhost:8080/api/health](http://localhost:8080/api/health)
-* Task endpoints → `/api/tasks`
+```bash
+curl http://localhost:8080/api/health
+```
 
+**For detailed installation instructions, see [INSTALL.md](INSTALL.md).**
 
-## HTTP API
+### Quick API Test
 
-**Base URL:** `http://localhost:8080/api`
+```bash
+# Create a task
+curl -X POST http://localhost:8080/api/tasks/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "task-001",
+    "title": "Morning Review",
+    "start": "2026-02-08T09:00:00Z",
+    "end": "2026-02-08T10:00:00Z",
+    "user_id": "1",
+    "status": "scheduled"
+  }'
 
-### Health Check
+# Get the task
+curl http://localhost:8080/api/tasks/task-001
+```
 
-**GET** `/api/health`
+**For complete API documentation, see [API.md](API.md).**
 
-### Create Task
+---
 
-**POST** `/api/tasks/`
-**Body:** JSON `Task` object (see [Data Model](#data-model--database))
+## Development
 
-If a conflicting block exists, returns **409 Conflict**.
+### Available Make Commands
 
-### Get Task
+```bash
+make help          # Show all available commands
+make build         # Build the binary
+make run           # Build and run
+make clean         # Clean build artifacts
+make test          # Run tests
+make migrate       # Run database migrations
+make migrate-down  # Rollback migrations
+make dev           # Run with hot reload (requires Air)
+make fmt           # Format code
+make lint          # Run linters
+make setup         # Complete project setup
+```
 
-**GET** `/api/tasks/{id}`
+### Development Mode (Hot Reload)
 
-### Delete Task
+Install [Air](https://github.com/cosmtrek/air) for automatic reloading:
 
-**DELETE** `/api/tasks/{id}`
+```bash
+go install github.com/cosmtrek/air@latest
+make dev
+```
 
+**For contributing guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).**
 
-### Notes on the Current API
+---
 
-* `GetTasks` currently uses a **hardcoded `user_id = "1"`**.
-  → Multi-user auth support is planned.
-* Standard error codes:
+## Docker
 
-  * `400` — Invalid JSON
-  * `404` — Task not found
-  * `409` — Task overlaps with existing one
+### Build and Run
+
+```bash
+# Using Make
+make docker-build
+make docker-run
+
+# Or using Docker directly
+docker build -t vesper:latest .
+docker run -p 8080:8080 -v $(pwd)/data:/data vesper:latest
+```
+
+The Docker image:
+- Uses multi-stage builds for a small image size (~20MB)
+- Runs as a non-root user
+- Mounts `/data` as a volume for database persistence
+- Exposes port 8080
+
+---
 
 ## Roadmap / Next Steps
 
@@ -133,50 +191,82 @@ If a conflicting block exists, returns **409 Conflict**.
 * [ ] Nightly job sending users planning links via email
 * [ ] Browser-based planning UI consuming `/api`
 * [ ] Authentication & true multi-user separation
+* [ ] Comprehensive test suite
 
 ### Medium Term
 
 * [ ] Recurring blocks & conflict resolution suggestions
 * [ ] iCal import/export support
 * [ ] Rate limiting, logging, and metrics
-* [ ] CI with migrations + tests
+* [ ] CI/CD pipeline with automated tests
+* [ ] API versioning
 
 ### Long Term
 
 * [ ] Team scheduling & shared calendars
 * [ ] Advanced conflict resolution heuristics
+* [ ] Mobile applications (iOS/Android)
+* [ ] Third-party calendar integrations (Outlook, Apple Calendar)
 
+---
 
 ## Contributing
 
-* Fork the repo & open a PR for new features or fixes.
-* Add tests when possible.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
 
-Suggested workflow:
+- Development setup
+- Coding standards
+- Pull request process
+- Reporting bugs and suggesting features
+
+Quick start for contributors:
 
 ```bash
 git checkout -b feat/your-feature
-# implement feature
-git commit -m "feat: add your-feature"
+# Make your changes
+make test
+make lint
+git commit -m "feat: add your feature"
 git push origin feat/your-feature
 ```
 
-Then open a PR with a clear description.
+---
 
+## Project Structure
 
-## Notes and Implementation Details
+```
+vesper/
+├── cmd/
+│   └── server/              # Main application entry point
+├── internal/
+│   ├── api/                 # HTTP handlers and routing
+│   ├── database/           # Database operations and migrations
+│   │   └── migrate/        # Migration runner
+│   └── models/             # Data models
+├── data/                   # SQLite database storage (gitignored)
+├── API.md                  # API documentation
+├── CONTRIBUTING.md         # Contributing guidelines
+├── INSTALL.md              # Installation guide
+├── CHANGELOG.md            # Version history
+├── Makefile               # Build and development tasks
+├── Dockerfile             # Docker configuration
+└── README.md              # This file
+```
 
-* Codebase is **small and idiomatic Go**.
-* Uses [`chi`](https://github.com/go-chi/chi) for routing.
-* Uses [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite) as an embedded driver.
-* Database operations live in `internal/database/` and return domain-level errors (`ErrTaskOverlap`, `ErrNotFound`, etc.).
-* A `/tmp` directory may hold build artifacts — you can delete it for a clean repo.
-
-
-## Contacts / Author
-
-See the [repository owner](https://github.com/Adjanour) for questions about design decisions and roadmap.
-
+---
 
 ## License
-MIT License (Beerware Edition)
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+## Author
+
+Created by [Adjanour](https://github.com/Adjanour)
+
+For questions about design decisions and roadmap, please open an issue or discussion.
+
+---
+
+**Built with ❤️ using Go**

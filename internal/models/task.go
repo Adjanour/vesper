@@ -13,11 +13,11 @@ const (
 )
 
 type Task struct {
-	ID         string     `json:"id"`
-	Title      string     `json:"title"`
-	Start      time.Time  `json:"start"`
-	End        time.Time  `json:"end"`
-	UserID     string     `json:"user_id"`
+	ID     string     `json:"id"`
+	Title  string     `json:"title"`
+	Start  time.Time  `json:"start"`
+	End    time.Time  `json:"end"`
+	UserID string     `json:"user_id"`
 	Status TaskStatus `json:"status"`
 }
 
@@ -31,7 +31,7 @@ func IsValidStatus(s TaskStatus) bool {
 }
 
 type User struct {
-	ID string `json:"id"`
+	ID       string `json:"id"`
 	Username string `json:"username"`
 }
 

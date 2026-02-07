@@ -10,9 +10,33 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// validateTask validates task fields
+func validateTask(t *models.Task) error {
+	if t.Title == "" {
+		return errors.New("title is required")
+	}
+	if t.UserID == "" {
+		return errors.New("user_id is required")
+	}
+	if t.Start.IsZero() {
+		return errors.New("start time is required")
+	}
+	if t.End.IsZero() {
+		return errors.New("end time is required")
+	}
+	if t.End.Before(t.Start) || t.End.Equal(t.Start) {
+		return errors.New("end time must be after start time")
+	}
+	if !models.IsValidStatus(t.Status) {
+		return errors.New("invalid status")
+	}
+	return nil
+}
+
 func (ar *APIRouter) GetTasks(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	tasks, err := ar.db.GetTasks(ctx,"1")
+	// TODO: Get user_id from authentication context instead of hardcoding
+	tasks, err := ar.db.GetTasks(ctx, "1")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -48,6 +72,17 @@ func (ar *APIRouter) createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate task
+	if err := validateTask(&t); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Set default status if not provided
+	if t.Status == "" {
+		t.Status = models.StatusScheduled
+	}
+
 	if err := ar.db.CreateTask(ctx, t); err != nil {
 		switch err {
 		case database.ErrTaskOverlap:
@@ -61,6 +96,40 @@ func (ar *APIRouter) createTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	WriteJsonResponse(w, http.StatusCreated, t)
+}
+
+func (ar *APIRouter) updateTask(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := chi.URLParam(r, "id")
+
+	var t models.Task
+	if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Set ID from URL parameter
+	t.ID = id
+
+	// Validate task
+	if err := validateTask(&t); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := ar.db.UpdateTask(ctx, t); err != nil {
+		switch err {
+		case database.ErrNotFound:
+			http.Error(w, "task not found", http.StatusNotFound)
+		case database.ErrTaskOverlap:
+			http.Error(w, "task overlaps with existing task", http.StatusConflict)
+		default:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	WriteJsonResponse(w, http.StatusOK, t)
 }
 
 func (ar *APIRouter) deleteTask(w http.ResponseWriter, r *http.Request) {

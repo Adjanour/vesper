@@ -23,8 +23,6 @@ func NewAPIRouter(q *database.Queries) *chi.Mux {
 	return api.Routes()
 }
 
-
-
 // borrowed from github.com/AmoabaKelvin/loglevel/internal/api
 func WriteJsonResponse(w http.ResponseWriter, status int, data any) {
 	payload, err := json.Marshal(data)
@@ -54,8 +52,10 @@ func (ar *APIRouter) Routes() *chi.Mux {
 			WriteJsonResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 		})
 		r.Route("/tasks", func(r chi.Router) {
-			r.Get("/{id}", ar.getTask)
+			r.Get("/", ar.GetTasks)
 			r.Post("/", ar.createTask)
+			r.Get("/{id}", ar.getTask)
+			r.Put("/{id}", ar.updateTask)
 			r.Delete("/{id}", ar.deleteTask)
 		})
 	})
