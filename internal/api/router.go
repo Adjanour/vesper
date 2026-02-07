@@ -52,8 +52,10 @@ func (ar *APIRouter) Routes() *chi.Mux {
 			WriteJsonResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 		})
 		r.Route("/tasks", func(r chi.Router) {
-			r.Get("/{id}", ar.getTask)
+			r.Get("/", ar.GetTasks)
 			r.Post("/", ar.createTask)
+			r.Get("/{id}", ar.getTask)
+			r.Put("/{id}", ar.updateTask)
 			r.Delete("/{id}", ar.deleteTask)
 		})
 	})

@@ -75,10 +75,11 @@ const (
 	SET title = ?, start = ?, end = ?, status = ?, user_id = ?
 	WHERE id = ?
 	`
-	deleteTaskSQL       = `DELETE FROM tasks WHERE id = ?`
-	getTaskSQL          = `SELECT id, title, start, end, status, user_id FROM tasks WHERE id = ?`
-	getTasksSQL         = `SELECT id, title, start, end, status, user_id FROM tasks WHERE user_id = ?`
-	checkTaskOverlapSQL = `SELECT 1 FROM tasks WHERE (? < end) AND (? > start)`
+	deleteTaskSQL              = `DELETE FROM tasks WHERE id = ?`
+	getTaskSQL                 = `SELECT id, title, start, end, status, user_id FROM tasks WHERE id = ?`
+	getTasksSQL                = `SELECT id, title, start, end, status, user_id FROM tasks WHERE user_id = ?`
+	checkTaskOverlapSQL        = `SELECT 1 FROM tasks WHERE (? < end) AND (? > start)`
+	checkTaskOverlapExcludeSQL = `SELECT 1 FROM tasks WHERE (? < end) AND (? > start) AND id != ?`
 )
 
 // CreateTask inserts a new task into DB
@@ -100,12 +101,24 @@ func (q *Queries) CreateTask(ctx context.Context, t models.Task) error {
 
 // UpdateTask updates an existing task
 func (q *Queries) UpdateTask(ctx context.Context, t models.Task) error {
-	result, err := q.db.ExecContext(ctx, updateTaskSQL, t.Title, t.Start, t.End, t.Status, t.UserID, t.ID)
+	// Check for overlap with other tasks (excluding this task)
+	result, err := q.db.QueryContext(ctx, checkTaskOverlapExcludeSQL, t.Start, t.End, t.ID)
+	if err != nil {
+		return err
+	}
+	defer result.Close()
+
+	if result.Next() {
+		return ErrTaskOverlap
+	}
+
+	// Update the task
+	execResult, err := q.db.ExecContext(ctx, updateTaskSQL, t.Title, t.Start, t.End, t.Status, t.UserID, t.ID)
 	if err != nil {
 		return err
 	}
 
-	rows, err := result.RowsAffected()
+	rows, err := execResult.RowsAffected()
 	if err != nil {
 		return err
 	}
