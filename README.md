@@ -85,7 +85,10 @@ It is intentionally small and opinionated so the frontend and integrations can e
 git clone https://github.com/Adjanour/vesper.git
 cd vesper
 
-# Complete setup (install dependencies + run migrations)
+# Option 1: Use the setup script (recommended for first-time setup)
+./setup.sh
+
+# Option 2: Use Make commands
 make setup
 
 # Run the server

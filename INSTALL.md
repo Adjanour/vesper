@@ -35,6 +35,22 @@ git --version
 
 For the impatient, here's the fastest way to get started:
 
+**Option 1: Using the setup script (recommended)**
+
+```bash
+# Clone the repository
+git clone https://github.com/Adjanour/vesper.git
+cd vesper
+
+# Run the automated setup script
+./setup.sh
+
+# Start the server
+make run
+```
+
+**Option 2: Using Make commands**
+
 ```bash
 # Clone the repository
 git clone https://github.com/Adjanour/vesper.git
