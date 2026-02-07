@@ -70,7 +70,7 @@ It is intentionally small and opinionated so the frontend and integrations can e
 
 * Google Calendar OAuth + sync
 * Nightly email with planning link
-* Authentication & multi-user support (basic `user_id` exists but no auth)
+* Authentication (no auth yet; API supports `X-User-ID` header for per-user scoping)
 * Background worker / nightly scheduler
 
 ---
