@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	dataDir        = "./data"
-	dbFile         = "./data/tasks.db"
-	migrationsDir  = "./internal/database/migrations"
+	dataDir       = "./data"
+	dbFile        = "./data/tasks.db"
+	migrationsDir = "./internal/database/migrations"
 )
 
 func main() {

@@ -12,7 +12,7 @@ import (
 
 func (ar *APIRouter) GetTasks(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	tasks, err := ar.db.GetTasks(ctx,"1")
+	tasks, err := ar.db.GetTasks(ctx, "1")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

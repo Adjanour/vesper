@@ -23,8 +23,6 @@ func NewAPIRouter(q *database.Queries) *chi.Mux {
 	return api.Routes()
 }
 
-
-
 // borrowed from github.com/AmoabaKelvin/loglevel/internal/api
 func WriteJsonResponse(w http.ResponseWriter, status int, data any) {
 	payload, err := json.Marshal(data)

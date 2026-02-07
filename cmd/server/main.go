@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	db,err := database.Connect()
+	db, err := database.Connect()
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
