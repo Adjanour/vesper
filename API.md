@@ -12,8 +12,10 @@ http://localhost:8080/api
 
 - [Health Check](#health-check)
 - [Tasks](#tasks)
+  - [List All Tasks](#list-all-tasks)
   - [Create Task](#create-task)
   - [Get Task](#get-task)
+  - [Update Task](#update-task)
   - [Delete Task](#delete-task)
 - [Error Responses](#error-responses)
 - [Data Models](#data-models)
@@ -49,6 +51,51 @@ curl http://localhost:8080/api/health
 ---
 
 ## Tasks
+
+### List All Tasks
+
+Retrieve all tasks for the current user (currently hardcoded to user_id = "1").
+
+#### Endpoint
+
+```
+GET /api/tasks/
+```
+
+#### Response
+
+**Status Code:** `200 OK`
+
+```json
+{
+  "tasks": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Morning Review",
+      "start": "2026-02-08T09:00:00Z",
+      "end": "2026-02-08T10:00:00Z",
+      "user_id": "1",
+      "status": "scheduled"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "title": "Team Meeting",
+      "start": "2026-02-08T14:00:00Z",
+      "end": "2026-02-08T15:00:00Z",
+      "user_id": "1",
+      "status": "scheduled"
+    }
+  ]
+}
+```
+
+#### Example (cURL)
+
+```bash
+curl http://localhost:8080/api/tasks/
+```
+
+---
 
 ### Create Task
 
@@ -156,6 +203,79 @@ curl http://localhost:8080/api/tasks/550e8400-e29b-41d4-a716-446655440000
 #### Error Responses
 
 - `404 Not Found` - Task with the specified ID does not exist
+
+---
+
+### Update Task
+
+Update an existing task. The API will check for overlaps with other tasks (excluding the task being updated).
+
+#### Endpoint
+
+```
+PUT /api/tasks/{id}
+```
+
+#### Path Parameters
+
+| Parameter | Type   | Description              |
+|-----------|--------|--------------------------|
+| id        | string | The unique task ID (UUID)|
+
+#### Request Headers
+
+```
+Content-Type: application/json
+```
+
+#### Request Body
+
+```json
+{
+  "title": "Morning Review (Extended)",
+  "start": "2026-02-08T09:00:00Z",
+  "end": "2026-02-08T10:30:00Z",
+  "user_id": "1",
+  "status": "scheduled"
+}
+```
+
+**Note:** The `id` field in the request body is ignored; the ID from the URL path is used.
+
+#### Response
+
+**Status Code:** `200 OK`
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Morning Review (Extended)",
+  "start": "2026-02-08T09:00:00Z",
+  "end": "2026-02-08T10:30:00Z",
+  "user_id": "1",
+  "status": "scheduled"
+}
+```
+
+#### Example (cURL)
+
+```bash
+curl -X PUT http://localhost:8080/api/tasks/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Morning Review (Extended)",
+    "start": "2026-02-08T09:00:00Z",
+    "end": "2026-02-08T10:30:00Z",
+    "user_id": "1",
+    "status": "scheduled"
+  }'
+```
+
+#### Error Responses
+
+- `400 Bad Request` - Invalid request format or validation error
+- `404 Not Found` - Task with the specified ID does not exist
+- `409 Conflict` - Updated task would overlap with another task
 
 ---
 

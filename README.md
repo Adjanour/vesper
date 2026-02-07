@@ -52,20 +52,24 @@ It is intentionally small and opinionated so the frontend and integrations can e
 
 * HTTP server that listens on `:8080` and exposes a JSON API
 * SQLite-based persistence stored at `./data/tasks.db`
-* Core task operations:
-  * Create a task (with overlap check)
-  * Get a single task
-  * Delete a task
+* Complete CRUD task operations:
+  * **List** all tasks for a user
+  * **Create** a task (with validation and overlap check)
+  * **Get** a single task by ID
+  * **Update** a task (with validation and overlap check)
+  * **Delete** a task
+* Input validation for all task operations
 * Database migrations with automated migration runner
+* **Web UI** - Beautiful browser-based interface for managing time blocks
 * Simple CORS setup for browser-based UIs
 * Docker support with multi-stage builds
+* Comprehensive test suite (18 tests)
 * Comprehensive documentation and setup guides
 
 🚧 **Not yet implemented:**
 
 * Google Calendar OAuth + sync
 * Nightly email with planning link
-* Frontend planning UI
 * Authentication & multi-user support (basic `user_id` exists but no auth)
 * Background worker / nightly scheduler
 

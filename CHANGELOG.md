@@ -17,9 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Installation guide (`INSTALL.md`)
 - Example environment configuration (`.env.example`)
 - This changelog file
+- **Complete CRUD API**: List all tasks, Update task endpoints
+- **Input validation** for task creation and updates
+- **Comprehensive test suite**: 18 tests covering API handlers and models
+- **Web UI**: Beautiful responsive frontend for managing time blocks
+- Overlap detection for task updates (excludes current task)
+- Default status assignment for tasks
 
 ### Changed
 - Updated README.md with references to new documentation files
+- Enhanced `UpdateTask` to check for overlaps excluding the task being updated
+- Fixed `GetTask` to properly return 404 for not found tasks
+- Server now serves both API and static web UI
 
 ## [0.1.0] - 2025-11-02
 
