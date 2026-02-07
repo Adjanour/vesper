@@ -151,6 +151,9 @@ func (q *Queries) GetTask(ctx context.Context, id string) (*models.Task, error) 
 	var t models.Task
 	err := row.Scan(&t.ID, &t.Title, &t.Start, &t.End, &t.Status, &t.UserID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	return &t, nil
